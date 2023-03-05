@@ -5,14 +5,14 @@ use std::{
 
 pub struct ThreadPool {
     workers: Vec<Worker>,
-    sender: mpsc::Sender<Job>
+    sender: Option<mpsc::Sender<Job>>,
 }
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
 
 struct Worker {
     id: usize,
-    thread: thread::JoinHandle<()>,
+    thread: Option<thread::JoinHandle<()>>,
 }
 
 impl Worker {
@@ -21,13 +21,17 @@ impl Worker {
             loop {
                 // Get an exclusive lock on the receiver and block until a message is received.
                 // Release the lock as soon as "job" is assigned a value.
-                let job = receiver.lock().unwrap().recv().unwrap();
-                job();
+                match receiver.lock().unwrap().recv().unwrap() {
+                    Ok(job) => job(),
+                    // If sender has been dropped, exit the worker's loop
+                    Err(_) => break,
+                }
+
             }
         });
         Worker {
             id,
-            thread,
+            thread: Some(thread),
         }
     }
 }
@@ -45,7 +49,7 @@ impl ThreadPool {
         for id in 0..size {
             workers.push(Worker::new(id, Arc::clone(&receiver)));
         }
-        ThreadPool {workers, sender}
+        ThreadPool {workers, sender: Some(sender)}
     }
 
     pub fn execute<F>(&self, function:F)
@@ -53,6 +57,17 @@ impl ThreadPool {
             F: FnOnce() + Send + 'static,
     {
         let job = Box::new(function);
-        self.sender.send(job).unwrap()
+        self.sender.as_ref().unwrap().send(job).unwrap()
+    }
+}
+
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        drop(self.sender.take());
+        for worker in &mut self.workers {
+            if let Some(thread) = worker.thread.take() {
+                thread.join().unwrap();
+            }
+        }
     }
 }
