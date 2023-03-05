@@ -21,7 +21,7 @@ impl Worker {
             loop {
                 // Get an exclusive lock on the receiver and block until a message is received.
                 // Release the lock as soon as "job" is assigned a value.
-                match receiver.lock().unwrap().recv().unwrap() {
+                match receiver.lock().unwrap().recv() {
                     Ok(job) => job(),
                     // If sender has been dropped, exit the worker's loop
                     Err(_) => break,
