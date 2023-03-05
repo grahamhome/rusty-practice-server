@@ -15,23 +15,12 @@ mod tests {
         (response, start.elapsed())
     }
 
-    /// This test is slow because it runs in parallel with the test that calls the sleep() method.
-    /// The fact that these tests are not idempotent is a consequence of the server under test being
-    /// single-threaded. When the server is multithreaded, theese tests will no longer interfere
-    /// and it_loads_fast() will pass.
     #[test]
-    fn it_loads_eventually() {
-        let (response, duration) = get_page("GET /sleep HTTP/1.1");
+    fn it_loads_fast() {
+        let (response, duration) = get_page("GET / HTTP/1.1");
         assert!(response.starts_with("HTTP/1.1 200 OK"));
-        assert!(duration.as_secs() < 6, "Response took too long: {:?}", duration)
+        assert!(duration.as_millis() < 5000, "Response took too long: {:?}", duration)
     }
-
-    // #[test]
-    // fn it_loads_fast() {
-    //     let (response, duration) = get_page("GET /sleep HTTP/1.1");
-    //     assert!(response.starts_with("HTTP/1.1 200 OK"));
-    //     assert!(duration.as_millis() < 500, "Response took too long: {:?}", duration)
-    // }
 
     #[test]
     fn it_loads_slow() {

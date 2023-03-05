@@ -1,13 +1,15 @@
 use std::{fs, io::{prelude::*, BufReader}, net::{TcpListener, TcpStream}, thread};
 use std::time::Duration;
+use crate::thread_pool::*;
 
 pub fn run_server() {
     let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+    let thread_pool = ThreadPool::new(4);
 
     // Iterate over connection attempts, panicking if any have an error
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-        handle_connection(stream);
+        thread_pool.execute(|| handle_connection(stream));
     }
 }
 
@@ -26,5 +28,4 @@ fn handle_connection(mut stream: TcpStream) {
     let length = contents.len();
     let response = format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}");
     stream.write_all(response.as_bytes()).unwrap();
-
 }
